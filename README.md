@@ -33,3 +33,14 @@ Troubleshooting
 	- Upgrade/downgrade `python-telegram-bot`: `python -m pip install --upgrade "python-telegram-bot"` or pin a known good version.
 	- On hosted services (Render, etc.) select a runtime image that uses Python 3.12.
 
+## Deploying with Docker on Render
+
+If `runtime.txt` does not correctly pin the Python version, you can switch your Render service to use Docker for a guaranteed environment.
+
+1.  **Go to your service's "Settings" page on the Render Dashboard.**
+2.  **Change the "Environment" from "Python" to "Docker".**
+3.  **Render will automatically detect the `Dockerfile` in your repository and build from it.**
+4.  **Trigger a new deploy.**
+
+This will build the bot inside a container running Python 3.12, which will resolve the compatibility errors.
+
