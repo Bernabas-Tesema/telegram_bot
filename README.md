@@ -26,3 +26,10 @@ python bot.py
 
 Security
 - Do NOT commit your bot token. The code requires `TELEGRAM_BOT_TOKEN` and `TELEGRAM_ADMIN_ID` environment variables and will fail fast if missing.
+
+Troubleshooting
+- If you see an AttributeError mentioning "_Updater__polling_cleanup_cb" when the bot starts (for example on hosted platforms or when using Python 3.13), this is usually a compatibility issue between your Python runtime and the installed `python-telegram-bot` wheel. Try one of the following:
+	- Use Python 3.12 or 3.11 for the runtime (create a venv using that interpreter).
+	- Upgrade/downgrade `python-telegram-bot`: `python -m pip install --upgrade "python-telegram-bot"` or pin a known good version.
+	- On hosted services (Render, etc.) select a runtime image that uses Python 3.12.
+

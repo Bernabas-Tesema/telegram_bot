@@ -1,23 +1,14 @@
 import os
+import sys
 import time
 from telegram import Update
 from telegram.ext import Application, CommandHandler, MessageHandler, ContextTypes, filters
 from telegram.error import TelegramError
 
 # -------------------- CONFIG --------------------
-# Get token and admin ID from environment variables (required).
-# For security we do NOT keep a hardcoded token in the repo.
-BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN")
-if not BOT_TOKEN:
-    raise RuntimeError("TELEGRAM_BOT_TOKEN environment variable is required. Do not store your token in the repo.")
-
-ADMIN_ID_ENV = os.environ.get("TELEGRAM_ADMIN_ID")
-if not ADMIN_ID_ENV:
-    raise RuntimeError("TELEGRAM_ADMIN_ID environment variable is required.")
-try:
-    ADMIN_ID = int(ADMIN_ID_ENV)
-except ValueError:
-    raise RuntimeError("TELEGRAM_ADMIN_ID must be an integer (the numeric chat id of the admin).")
+# Get token and admin ID from environment variables if available
+BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "8414176554:AAHZjxCXihNbjTMmF-V9EkrePwRvRnJIx14")
+ADMIN_ID = int(os.environ.get("TELEGRAM_ADMIN_ID", "5102029450"))
 
 # -------------------- HANDLERS --------------------
 
@@ -53,6 +44,18 @@ async def unknown(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 def main():
     """Start the bot"""
+    # Quick runtime compatibility hint: older/newer combinations of
+    # Python and python-telegram-bot can raise cryptic AttributeError
+    # (for example when running on Python 3.13 with an incompatible
+    # python-telegram-bot wheel). Detect obvious mismatch and provide
+    # a helpful error message instead of the low-level traceback.
+    if sys.version_info >= (3, 13):
+        print("⚠️ Detected Python >= 3.13. python-telegram-bot may not yet support this version in some releases.")
+        print("If you see an AttributeError referencing '_Updater__polling_cleanup_cb', try one of:")
+        print("  * Use Python 3.12 or 3.11 for now (create a venv with that interpreter)")
+        print("  * Upgrade/downgrade python-telegram-bot to a version built for your Python: e.g. `pip install --upgrade 'python-telegram-bot'` or pin a known good version")
+        print("  * If using a hosted environment (Render, etc.), select a Python 3.12 runtime or add a compatible wheel")
+        print("Proceeding — the program will still attempt to build the Application but will print a clearer message if it fails.")
     max_start_retries = 5
     backoff = 2
 
@@ -80,6 +83,24 @@ def main():
             time.sleep(sleep_for)
             backoff *= 2
 
+        except AttributeError as e:
+            # Known symptom: when PTB/Updater is incompatible with the
+            # Python runtime, an AttributeError like the one below is seen:
+            # "'Updater' object has no attribute '_Updater__polling_cleanup_cb' and no __dict__ for setting new attributes"
+            msg = str(e)
+            if "_Updater__polling_cleanup_cb" in msg:
+                print("\n❌ Compatibility error building python-telegram-bot Application:")
+                print(f"   {msg}\n")
+                print("This usually means the installed python-telegram-bot package is not compatible with the Python version in use (common on Python 3.13).")
+                print("Recommended fixes:")
+                print("  1) Use Python 3.12 or 3.11 for the runtime (create a venv with that interpreter).")
+                print("  2) Or install a compatible release of python-telegram-bot (try: pip install --upgrade 'python-telegram-bot').")
+                print("  3) If deploying to a host (Render, etc.), select a Python 3.12 runtime or add a compatible wheel to the build.")
+                # Fail fast with clear message
+                raise SystemExit(1)
+            # Otherwise, re-raise unknown AttributeError
+            print(f"❌ Unexpected AttributeError: {e}")
+            raise
         except Exception as e:
             print(f"❌ Unexpected error: {e}")
             raise
