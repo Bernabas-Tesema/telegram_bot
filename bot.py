@@ -20,11 +20,24 @@ Notes:
 
 from __future__ import annotations
 
+import sys
 import os
 import json
 import asyncio
 import threading
 from typing import Optional
+
+# python-telegram-bot 20.x currently requires Python <= 3.12 for the
+# prebuilt binary wheels. Running on Python 3.13+ can produce an
+# AttributeError when building the PTB Application. Detect this early
+# and print a clear message so users know to run with Python 3.12/3.11
+# or install a compatible build.
+if sys.version_info >= (3, 13):
+    raise RuntimeError(
+        "python-telegram-bot may not be compatible with Python >= 3.13.\n"
+        "Please run this project with Python 3.12 or 3.11, or install a "
+        "python-telegram-bot wheel built for your Python version."
+    )
 
 from flask import Flask, request, abort
 from telegram import Update
@@ -41,6 +54,10 @@ if not TOKEN:
 
 # Optional: explicit webhook URL or inferred from Render
 WEBHOOK_URL: Optional[str] = os.environ.get("WEBHOOK_URL") or os.environ.get("RENDER_EXTERNAL_URL")
+# Optional secret token used to secure the webhook. If set, the same value
+# will be passed to Telegram via set_webhook(secret_token=...) and Telegram
+# will include it in the request header 'X-Telegram-Bot-Api-Secret-Token'.
+WEBHOOK_SECRET: Optional[str] = os.environ.get("WEBHOOK_SECRET") or os.environ.get("TELEGRAM_WEBHOOK_SECRET")
 
 
 # -------------------- PTB Application (async) --------------------
@@ -71,10 +88,14 @@ async def _ptb_startup():
     await ptb_app.start()
 
     if WEBHOOK_URL:
-        # Normalize URL to end with a slash and use root path for updates
+        # Normalize URL and set webhook on Telegram. If WEBHOOK_SECRET is
+        # provided, pass it to Telegram so incoming requests include the
+        # 'X-Telegram-Bot-Api-Secret-Token' header with this value.
         url = WEBHOOK_URL.strip()
-        # Telegram accepts without trailing slash too; keep as provided
-        await ptb_app.bot.set_webhook(url=url)
+        if WEBHOOK_SECRET:
+            await ptb_app.bot.set_webhook(url=url, secret_token=WEBHOOK_SECRET)
+        else:
+            await ptb_app.bot.set_webhook(url=url)
     else:
         # Webhook URL not available — warn, but continue. Incoming updates will 404.
         print("⚠️ WEBHOOK_URL not set and RENDER_EXTERNAL_URL not found — set one to enable Telegram to deliver updates.")
@@ -96,6 +117,14 @@ def health() -> str:
 @app.post("/")
 def telegram_webhook():
     # Verify request is JSON (Telegram sends JSON)
+    # If a WEBHOOK_SECRET is configured, validate the Telegram secret header
+    # to ensure the request really came from Telegram.
+    if WEBHOOK_SECRET:
+        header_secret = request.headers.get("X-Telegram-Bot-Api-Secret-Token")
+        if not header_secret or header_secret != WEBHOOK_SECRET:
+            # Forbidden when secret is present but doesn't match
+            abort(403)
+
     if not request.is_json:
         abort(400)
 
@@ -124,21 +153,3 @@ if __name__ == "__main__":
     print(f"Starting Flask server on {host}:{port} with webhook mode enabled")
     app.run(host=host, port=port)
 
-"""Compatibility entrypoint: `python bot.py`.
-
-This small wrapper ensures users who run `python bot.py` (singular)
-will call the actual bot implementation in `bots.py`.
-"""
-
-import sys
-
-try:
-    import bots
-except Exception as e:
-    print(f"Failed to import 'bots' module: {e}", file=sys.stderr)
-    raise
-
-
-if __name__ == "__main__":
-    # Delegate to bots.main()
-    bots.main()

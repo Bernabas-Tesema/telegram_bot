@@ -1,3 +1,22 @@
+FROM python:3.12-slim
+
+WORKDIR /app
+
+# Install system deps for Pillow/file handling if needed (kept minimal)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    gcc \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY requirements.txt ./
+RUN pip install --no-cache-dir -r requirements.txt
+
+COPY . .
+
+ENV PORT=8080
+
+EXPOSE 8080
+
+CMD ["python", "bot.py"]
 # Use the official Python 3.12 slim image as a base
 FROM python:3.12-slim
 
