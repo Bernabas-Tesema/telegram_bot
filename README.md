@@ -24,6 +24,20 @@ $env:TELEGRAM_ADMIN_ID = "<your-admin-chat-id>"
 python bot.py
 ```
 
+## Deploying on Vercel
+
+This project uses Telegram webhooks through the Flask app in `api/index.py`.
+
+1. Push the project to GitHub and import the repository in Vercel.
+2. In Vercel project settings, add these environment variables for the Production environment:
+	- `TELEGRAM_BOT_TOKEN`: your BotFather token
+	- `TELEGRAM_ADMIN_ID`: the chat ID that receives screenshots
+	- `TELEGRAM_WEBHOOK_SECRET`: a long random string (recommended)
+3. Deploy the project. Vercel's `VERCEL_URL` is used to register Telegram's webhook automatically.
+4. Check `https://<your-vercel-domain>/api` and confirm it returns `OK`.
+
+If you use a custom domain, set `WEBHOOK_URL` to `https://<your-domain>/api` so Telegram uses that stable URL.
+
 Security
 - Do NOT commit your bot token. The code requires `TELEGRAM_BOT_TOKEN` and `TELEGRAM_ADMIN_ID` environment variables and will fail fast if missing.
 

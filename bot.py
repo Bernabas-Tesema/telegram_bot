@@ -52,8 +52,11 @@ TOKEN: Optional[str] = os.environ.get("TELEGRAM_TOKEN") or os.environ.get("TELEG
 if not TOKEN:
     raise RuntimeError("Missing TELEGRAM_TOKEN (or TELEGRAM_BOT_TOKEN) environment variable.")
 
-# Optional: explicit webhook URL or inferred from Render
+# Optional: explicit webhook URL or inferred from the hosting platform.
+# Vercel exposes VERCEL_URL without the scheme, so include the API path.
 WEBHOOK_URL: Optional[str] = os.environ.get("WEBHOOK_URL") or os.environ.get("RENDER_EXTERNAL_URL")
+if not WEBHOOK_URL and os.environ.get("VERCEL_URL"):
+    WEBHOOK_URL = f"https://{os.environ['VERCEL_URL']}/api"
 # Optional secret token used to secure the webhook. If set, the same value
 # will be passed to Telegram via set_webhook(secret_token=...) and Telegram
 # will include it in the request header 'X-Telegram-Bot-Api-Secret-Token'.

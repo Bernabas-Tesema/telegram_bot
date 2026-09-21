@@ -7,8 +7,14 @@ from telegram.error import TelegramError
 
 # -------------------- CONFIG --------------------
 # Get token and admin ID from environment variables if available
-BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "8414176554:AAHZjxCXihNbjTMmF-V9EkrePwRvRnJIx14")
-ADMIN_ID = int(os.environ.get("TELEGRAM_ADMIN_ID", "5102029450"))
+BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN")
+if not BOT_TOKEN:
+    raise RuntimeError("Missing TELEGRAM_BOT_TOKEN environment variable.")
+
+ADMIN_ID_VALUE = os.environ.get("TELEGRAM_ADMIN_ID")
+if not ADMIN_ID_VALUE:
+    raise RuntimeError("Missing TELEGRAM_ADMIN_ID environment variable.")
+ADMIN_ID = int(ADMIN_ID_VALUE)
 
 # -------------------- HANDLERS --------------------
 
