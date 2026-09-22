@@ -133,6 +133,8 @@ def health() -> str:
 
 
 @app.post("/")
+@app.post("/api")
+@app.post("/api/")
 def telegram_webhook():
     try:
         _ensure_ptb_started()
