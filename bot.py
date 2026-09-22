@@ -22,10 +22,12 @@ from __future__ import annotations
 
 import sys
 import os
-import json
 import asyncio
 import threading
 from typing import Optional
+from dotenv import load_dotenv
+
+load_dotenv()
 
 # python-telegram-bot 20.x currently requires Python <= 3.12 for the
 # prebuilt binary wheels. Running on Python 3.13+ can produce an
@@ -64,7 +66,8 @@ WEBHOOK_SECRET: Optional[str] = os.environ.get("WEBHOOK_SECRET") or os.environ.g
 
 
 # -------------------- PTB Application (async) --------------------
-# We'll run PTB on a dedicated asyncio event loop in a background thread.
+# Keep Telegram startup out of module import. Vercel imports this module to
+# create the function, and network calls during import can fail the invocation.
 
 ptb_loop = asyncio.new_event_loop()
 
@@ -104,8 +107,19 @@ async def _ptb_startup():
         print("⚠️ WEBHOOK_URL not set and RENDER_EXTERNAL_URL not found — set one to enable Telegram to deliver updates.")
 
 
-# Schedule startup on the background loop and wait for completion
-asyncio.run_coroutine_threadsafe(_ptb_startup(), ptb_loop).result()
+ptb_startup_lock = threading.Lock()
+ptb_started = False
+
+
+def _ensure_ptb_started() -> None:
+    global ptb_started
+    if ptb_started:
+        return
+
+    with ptb_startup_lock:
+        if not ptb_started:
+            asyncio.run_coroutine_threadsafe(_ptb_startup(), ptb_loop).result(timeout=6)
+            ptb_started = True
 
 
 # -------------------- Flask App --------------------
@@ -119,6 +133,12 @@ def health() -> str:
 
 @app.post("/")
 def telegram_webhook():
+    try:
+        _ensure_ptb_started()
+    except Exception as e:
+        print(f"Failed to initialize Telegram application: {e}")
+        abort(503)
+
     # Verify request is JSON (Telegram sends JSON)
     # If a WEBHOOK_SECRET is configured, validate the Telegram secret header
     # to ensure the request really came from Telegram.

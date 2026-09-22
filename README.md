@@ -33,7 +33,7 @@ This project uses Telegram webhooks through the Flask app in `api/index.py`.
 	- `TELEGRAM_BOT_TOKEN`: your BotFather token
 	- `TELEGRAM_ADMIN_ID`: the chat ID that receives screenshots
 	- `TELEGRAM_WEBHOOK_SECRET`: a long random string (recommended)
-3. Deploy the project. Vercel's `VERCEL_URL` is used to register Telegram's webhook automatically.
+3. Deploy the project. Vercel's `VERCEL_URL` is used to register Telegram's webhook when the first update arrives.
 4. Check `https://<your-vercel-domain>/api` and confirm it returns `OK`.
 
 If you use a custom domain, set `WEBHOOK_URL` to `https://<your-domain>/api` so Telegram uses that stable URL.

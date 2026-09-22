@@ -1,9 +1,12 @@
 import os
 import sys
 import time
+from dotenv import load_dotenv
 from telegram import Update
 from telegram.ext import Application, CommandHandler, MessageHandler, ContextTypes, filters
 from telegram.error import TelegramError
+
+load_dotenv()
 
 # -------------------- CONFIG --------------------
 # Get token and admin ID from environment variables if available
