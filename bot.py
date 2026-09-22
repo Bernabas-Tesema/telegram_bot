@@ -43,7 +43,7 @@ if sys.version_info >= (3, 13):
 
 from flask import Flask, request, abort
 from telegram import Update
-from telegram.ext import Application, CommandHandler, MessageHandler, ContextTypes, filters
+from telegram.ext import Application, CallbackQueryHandler, CommandHandler, MessageHandler, ContextTypes, filters
 
 # Import existing bot logic (handlers and any constants like ADMIN_ID)
 import bots as bot_logic
@@ -85,6 +85,7 @@ loop_thread.start()
 ptb_app = Application.builder().token(TOKEN).build()
 ptb_app.add_handler(CommandHandler("start", bot_logic.start))
 ptb_app.add_handler(MessageHandler(filters.PHOTO, bot_logic.handle_photo))
+ptb_app.add_handler(CallbackQueryHandler(bot_logic.handle_admin_decision, pattern=r"^(approve|reject):\d+$"))
 ptb_app.add_handler(MessageHandler(filters.ALL, bot_logic.unknown))
 
 

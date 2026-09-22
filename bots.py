@@ -2,8 +2,8 @@ import os
 import sys
 import time
 from dotenv import load_dotenv
-from telegram import Update
-from telegram.ext import Application, CommandHandler, MessageHandler, ContextTypes, filters
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
+from telegram.ext import Application, CallbackQueryHandler, CommandHandler, MessageHandler, ContextTypes, filters
 from telegram.error import TelegramError
 
 load_dotenv()
@@ -22,8 +22,8 @@ ADMIN_ID = int(ADMIN_ID_VALUE)
 # -------------------- HANDLERS --------------------
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Send welcome message when user starts the bot"""
-    await update.message.reply_text("👋 Hello! Please send your screenshot here.")
+    """Tell users that the bot accepts screenshots only."""
+    await update.message.reply_text("Please send a screenshot image only.")
 
 async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Forward the screenshot to the admin and notify the user"""
@@ -32,11 +32,20 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
         user = update.message.from_user
         caption = f"📩 New screenshot received!\n👤 From: @{user.username or user.first_name}\n🆔 {user.id}"
 
-        # Notify admin
-        await context.bot.send_message(chat_id=ADMIN_ID, text="🔔 New screenshot received!")
+        keyboard = InlineKeyboardMarkup([
+            [
+                InlineKeyboardButton("Approve", callback_data=f"approve:{user.id}"),
+                InlineKeyboardButton("Reject", callback_data=f"reject:{user.id}"),
+            ]
+        ])
 
-        # Forward the screenshot to admin
-        await context.bot.send_photo(chat_id=ADMIN_ID, photo=photo.file_id, caption=caption)
+        # Send the screenshot only to the configured admin chat.
+        await context.bot.send_photo(
+            chat_id=ADMIN_ID,
+            photo=photo.file_id,
+            caption=caption,
+            reply_markup=keyboard,
+        )
 
         # Acknowledge to user
         await update.message.reply_text("✅ Screenshot received successfully!")
@@ -47,7 +56,32 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def unknown(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle messages that are not photos"""
-    await update.message.reply_text("❗ Please send only a screenshot image.")
+    await update.message.reply_text("Please send a screenshot image only.")
+
+
+async def handle_admin_decision(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Allow only the configured admin to approve or reject a submission."""
+    query = update.callback_query
+    if query is None:
+        return
+
+    if query.from_user.id != ADMIN_ID:
+        await query.answer("You are not authorized to make this decision.", show_alert=True)
+        return
+
+    action, user_id_text = query.data.split(":", maxsplit=1)
+    decision = "approved" if action == "approve" else "rejected"
+    await query.answer(f"Screenshot {decision}.")
+    await query.edit_message_reply_markup(reply_markup=None)
+    await query.edit_message_caption(caption=f"{query.message.caption}\n\nStatus: {decision.capitalize()}")
+
+    try:
+        await context.bot.send_message(
+            chat_id=int(user_id_text),
+            text=f"Your screenshot was {decision} by the admin.",
+        )
+    except TelegramError as e:
+        print(f"Failed to notify submitter {user_id_text}: {e}")
 
 # -------------------- MAIN --------------------
 
@@ -76,6 +110,7 @@ def main():
             # Add handlers
             app.add_handler(CommandHandler("start", start))
             app.add_handler(MessageHandler(filters.PHOTO, handle_photo))
+            app.add_handler(CallbackQueryHandler(handle_admin_decision, pattern=r"^(approve|reject):\d+$"))
             app.add_handler(MessageHandler(filters.ALL, unknown))
 
             print("🤖 Bot is running...")
